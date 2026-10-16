@@ -2,13 +2,14 @@ const output = document.querySelector('#terminal-output');
 const controls = document.querySelector('#terminal-controls');
 const form = document.querySelector('#terminal-form');
 const input = document.querySelector('#command-input');
+const promptLabel = document.querySelector('#prompt-label');
 const runButton = document.querySelector('#run-command');
 const status = document.querySelector('#system-status');
 const welcome = document.querySelector('#welcome-template');
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const bootLines = [
-  ['COTDB MONITOR v1.3', 170],
+  ['BUNNYOS MONITOR v0.9', 170],
   ['CHECKING MEMORY .......... 640K OK', 230],
   ['SEARCHING FOR CARRIER ... CONNECTED', 320],
   ['MOUNTING /WARREN ........ OK', 240],
@@ -18,11 +19,6 @@ const bootLines = [
   ['HANDING CONTROL TO GUEST ...', 380]
 ];
 
-const files = {
-  'readme.txt': 'COTDB / CULT OF THE DEAD BUNNIES\nA small terminal on the edge of the old web.\nTry: map, travel, or cat manifesto.txt',
-  'manifesto.txt': '01. Stay curious.\n02. Take things apart to understand them.\n03. Leave a trail for the next person.\n04. Feed the bunny.',
-  'fieldnotes.txt': 'The wagon is packed. The road ahead is mostly static.\nSomewhere past the crossing, a signal keeps repeating: 2600.'
-};
 const stops = [
   {name: 'CAMP', detail: 'The wagon waits beside a dim terminal. The trail begins here.'},
   {name: 'PAYPHONE', detail: 'A payphone rings once. Nobody is on the other end.'},
@@ -32,12 +28,11 @@ const stops = [
 ];
 const secrets = {
   xyzzy: 'A hollow voice says: welcome to the warren.',
-  sudo: 'Permission denied. The bunny already has root.',
   '2600': 'A faint tone answers from somewhere down the line.',
   oregon: 'The wagon made it across the river. The bunny refuses to explain how.',
   moo: 'Wrong cult. The bunny stares at you.'
 };
-const completions = ['help', 'about', 'files', 'ls', 'cat readme.txt', 'cat manifesto.txt', 'cat fieldnotes.txt', 'map', 'look', 'travel', 'status', 'wagon', 'rabbit', 'whoami', 'date', 'clear', 'reboot'];
+const completions = ['help', 'about', 'map', 'look', 'travel', 'status', 'wagon', 'rabbit', 'date', 'clear', 'reboot'];
 const history = [];
 let historyIndex = 0;
 let trailIndex = 0;
@@ -81,6 +76,8 @@ async function boot() {
   commandCount = 0;
   history.length = 0;
   historyIndex = 0;
+  window.BunnyShell.reset();
+  promptLabel.textContent = window.BunnyShell.prompt();
 
   if (!reducedMotion) {
     for (const [message, delay] of bootLines) {
@@ -125,23 +122,22 @@ function run(raw) {
     output.replaceChildren();
     return;
   }
-  line(`cotdb@warren:~$ ${entered}`, 'prompt');
+  line(promptLabel.textContent + ' ' + entered, 'prompt');
   if (command === 'reboot') {
     boot();
     return;
   }
+  const shellResult = window.BunnyShell.run(entered);
+  if (shellResult) {
+    if (shellResult.text) line(shellResult.text, shellResult.error ? 'error' : 'response');
+    promptLabel.textContent = window.BunnyShell.prompt();
+    return;
+  }
 
   if (command === 'help') {
-    line('help              show this list\nfiles / ls        list files\ncat <file>        read a file\nmap / look        inspect the trail\ntravel            move the wagon forward\nstatus            check this session\nwagon / rabbit    bring back the bunny\nclear / reboot    start fresh', 'response');
+    line('help                 show this list\npwd / cd <path>      move through directories\nls / files [-la]     list a directory\ncat <file>           read a text file\nhead / tail <file>   read part of a file\ntree [path]          show directory branches\nmap / look / travel  follow the wagon trail\nstatus               check this session\nwagon / rabbit       bring back the bunny\nclear / reboot       start fresh', 'response');
   } else if (command === 'about') {
     line('Cult of the Dead Bunnies // a little corner of the old web. A bunny, a wagon, and a trail of text files.', 'response');
-  } else if (command === 'files' || command === 'ls') {
-    line('README.TXT    MANIFESTO.TXT    FIELDNOTES.TXT    WAGON.PNG', 'response');
-  } else if (command.startsWith('cat ')) {
-    const filename = command.slice(4).replace(/^\.\//, '');
-    if (Object.hasOwn(files, filename)) line(files[filename], 'response');
-    else if (filename === 'wagon.png') line('Binary image. Type wagon to display it.', 'response');
-    else line(`No such file: ${filename}. Type files to list the directory.`, 'error');
   } else if (command === 'map') {
     line(map(), 'response');
   } else if (command === 'look') {
@@ -158,8 +154,6 @@ function run(raw) {
     showWagon();
   } else if (command === 'rabbit') {
     line(' (\\_/)\n (x.x)\n / >o   The trail continues.', 'response');
-  } else if (command === 'whoami') {
-    line('guest@warren // trail companion', 'response');
   } else if (command === 'date') {
     line(new Date().toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}), 'response');
   } else if (Object.hasOwn(secrets, command)) {
@@ -187,7 +181,7 @@ input.addEventListener('keydown', (event) => {
     input.value = history[historyIndex] ?? '';
   } else if (event.key === 'Tab') {
     event.preventDefault();
-    const matches = completions.filter((item) => item.startsWith(input.value.trim().toLowerCase()));
+    const matches = [...new Set([...completions.filter((item) => item.startsWith(input.value.trim().toLowerCase())), ...window.BunnyShell.complete(input.value.trim())])];
     if (matches.length === 1) input.value = matches[0];
     else if (matches.length > 1 && input.value.trim()) line(matches.join('  '), 'response');
   } else if (event.ctrlKey && event.key.toLowerCase() === 'l') {
