@@ -68,6 +68,9 @@ async function boot() {
   runButton.disabled = false;
   status.textContent = 'ONLINE';
   booting = false;
+  if (window.matchMedia('(pointer: fine)').matches) {
+    input.focus({preventScroll: true});
+  }
 }
 
 function execute(raw) {
@@ -122,6 +125,10 @@ document.querySelectorAll('[data-command]').forEach((button) => {
     execute(button.dataset.command);
     input.focus();
   });
+});
+
+output.addEventListener('click', () => {
+  if (!booting) input.focus();
 });
 
 boot();
