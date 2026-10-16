@@ -3,34 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b0e0b">
-  <meta name="description" content="Cult of the Dead Bunnies. A little corner of the old web for strange signals and curious minds.">
-  <title>Cult of the Dead Bunnies</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230b0e0b'/%3E%3Ctext x='8' y='48' font-size='48' fill='%2399c58c'%3E%26%23355%3B%3C/text%3E%3C/svg%3E">
+  <meta name="theme-color" content="#080d08">
+  <meta name="description" content="Cult of the Dead Bunnies. A terminal, a wagon, and a rabbit hole.">
+  <title>COTDB — Cult of the Dead Bunnies</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23080d08'/%3E%3Ctext x='8' y='48' font-size='48' fill='%239fd49b'%3E%26%23355%3B%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
   <script src="script.js" defer></script>
 </head>
 <body>
-  <main class="screen">
-    <header class="screen-header"><span>COTDB <span class="dim">/</span> TERMINAL 01</span><span class="connection">[ CARRIER DETECTED ]</span></header>
-    <p class="command-line"><span class="prompt">cotdb&gt;</span> run welcome.exe</p>
-    <figure class="wagon"><img src="assets/bunny-wagon-v2.png" alt="White pixel-art bunny pulling a covered Oregon Trail wagon" width="1774" height="887"></figure>
-    <h1>CULT OF THE DEAD BUNNIES<span class="cursor" aria-hidden="true">_</span></h1>
-    <p class="intro">A little corner of the old web for strange signals, phreaking lore, text files, and curious minds.</p>
-    <div class="rule" aria-hidden="true">────────────────────────────────────────────────────────────────────────────────</div>
-    <section class="shell" aria-label="Interactive terminal">
-      <p class="shell-label">DIRECTORY <span class="dim">/</span> TYPE A COMMAND</p>
-      <div class="shortcuts" aria-label="Suggested commands">
+  <main class="terminal" aria-label="Cult of the Dead Bunnies terminal">
+    <header class="terminal-header">
+      <span class="terminal-name">COTDB <span class="separator">/</span> TERMINAL 01</span>
+      <span id="system-status" class="system-status" role="status">BOOTING...</span>
+    </header>
+
+    <div id="terminal-output" class="terminal-output" role="log" aria-live="polite" aria-label="Terminal output">
+      <p class="boot-line">Initializing terminal...</p>
+      <noscript><p>JavaScript is required to use this terminal.</p></noscript>
+    </div>
+
+    <div id="terminal-controls" class="terminal-controls" hidden>
+      <div class="shortcuts" aria-label="Quick commands">
+        <span class="shortcut-label">QUICK PRESS:</span>
         <button type="button" data-command="help">[ help ]</button>
         <button type="button" data-command="about">[ about ]</button>
         <button type="button" data-command="phreak">[ phreak ]</button>
         <button type="button" data-command="phrack">[ phrack ]</button>
         <button type="button" data-command="rabbit">[ rabbit ]</button>
       </div>
-      <div id="terminal-output" class="terminal-output" role="log" aria-live="polite" aria-label="Terminal output"><p>Welcome to the warren. Type <strong>help</strong> and press Enter.</p></div>
-      <form id="terminal-form" autocomplete="off"><label for="command-input">cotdb&gt;</label><input id="command-input" name="command" type="text" maxlength="80" spellcheck="false" aria-label="Terminal command"><button type="submit" aria-label="Run command">↵</button></form>
-    </section>
-    <footer><span>NO BUNNIES WERE HARMED.</span><span>EOF</span></footer>
+      <form id="terminal-form" autocomplete="off">
+        <label for="command-input">cotdb@warren:~$</label>
+        <input id="command-input" name="command" type="text" maxlength="120" spellcheck="false" autocapitalize="off" aria-label="Type a terminal command" disabled>
+        <button id="run-command" type="submit" aria-label="Run command" disabled>↵</button>
+      </form>
+    </div>
   </main>
+
+  <template id="welcome-template">
+    <div class="welcome">
+      <p class="ready-line">COTDB SYSTEM READY <span aria-hidden="true">//</span> WELCOME TO THE WARREN</p>
+      <img class="wagon" src="assets/bunny-wagon-v2.png" alt="White pixel-art bunny pulling a covered Oregon Trail wagon" width="1774" height="887">
+      <h1>CULT OF THE DEAD BUNNIES<span class="cursor" aria-hidden="true">_</span></h1>
+      <p>A bunny, a wagon, and a place for dial tones, hacker zines, and the old web.</p>
+      <p class="hint">Type <strong>help</strong> or use a quick press command below.</p>
+    </div>
+  </template>
 </body>
 </html>
