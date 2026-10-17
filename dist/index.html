@@ -5,30 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080d08">
   <meta name="description" content="Cult of the Dead Bunnies. A terminal, a wagon, and a rabbit hole.">
-  <title>COTDB — Cult of the Dead Bunnies</title>
+  <title>COTDB: BunnyOS</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23080d08'/%3E%3Ctext x='8' y='48' font-size='48' fill='%239fd49b'%3E%26%23355%3B%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
   <script src="filesystem.js" defer></script>
+  <script src="vendor/bcrypt.min.js" defer></script>
+  <script src="games.js" defer></script>
   <script src="shell.js" defer></script>
+  <script src="audio.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
   <main class="terminal" aria-label="Cult of the Dead Bunnies terminal">
     <header class="terminal-header">
-      <span class="terminal-name">COTDB <span class="separator">/</span> TERMINAL 01</span>
-      <span id="system-status" class="system-status" role="status">BOOTING...</span>
+      <span class="terminal-name">COTDB <span class="separator">:</span> <span class="terminal-subtitle">BunnyOS Terminal</span></span>
+      <span class="header-actions">
+        <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="false" aria-label="Enable sound effects">SFX OFF</button>
+        <span id="system-status" class="system-status" role="status">OFFLINE</span>
+      </span>
     </header>
 
     <div id="terminal-output" class="terminal-output" role="log" aria-live="polite" aria-label="Terminal output">
-      <p class="boot-line">Initializing terminal...</p>
+      <p class="boot-line">SYSTEM OFFLINE</p>
       <noscript><p>JavaScript is required to use this terminal.</p></noscript>
     </div>
 
     <div id="terminal-controls" class="terminal-controls" hidden>
       <div class="shortcuts" aria-label="Quick commands">
-        <span class="shortcut-label">QUICK PRESS:</span>
+        <span class="shortcut-label">Commands:</span>
         <button type="button" data-command="help">[ help ]</button>
         <button type="button" data-command="files">[ files ]</button>
+        <button type="button" data-command="games">[ games ]</button>
         <button type="button" data-command="map">[ map ]</button>
         <button type="button" data-command="travel">[ travel ]</button>
         <button type="button" data-command="rabbit">[ rabbit ]</button>
@@ -41,12 +48,50 @@
     </div>
   </main>
 
+  <template id="power-template">
+    <div class="power-screen">
+      <div class="power-face">
+        <p class="power-eyebrow">COTDB // WARREN TERMINAL</p>
+        <div class="power-mark" aria-hidden="true">(\_/)<br>(o.o)<br>/ &gt;_</div>
+        <h1>BunnyOS is powered off.</h1>
+        <p>Enable SFX above if you want to hear the drive start.</p>
+        <button id="boot-button" type="button">[ BOOT ]</button>
+        <p class="power-hint">Press the button to start the machine.</p>
+      </div>
+    </div>
+  </template>
+
+  <template id="bios-template">
+    <div class="bios-screen">
+      <div class="bios-topline"><strong>WARRENWARE BIOS</strong><span>REV 0.9 · 1994</span></div>
+      <div class="bios-mark" aria-hidden="true">(\_/)<br>(o.o)<br>/ &gt;_</div>
+      <h1>COTDB PERSONAL COMPUTER</h1>
+      <p>CarrotCore 486DX Processor at 33 MHz</p>
+      <p>Base Memory: 640K OK&nbsp;&nbsp; Extended Memory: 4096K OK</p>
+      <div class="bios-hardware">
+        <p>Primary Master&nbsp;&nbsp; WARREN_HDD&nbsp; 42 MB</p>
+        <p>Floppy Drive A&nbsp; 1.44 MB&nbsp;&nbsp;&nbsp; [empty]</p>
+        <p>Boot Sequence&nbsp;&nbsp; HDD-0, FDD, PXE</p>
+      </div>
+      <p id="bios-message" class="bios-message">Detecting drives<span class="bios-dots" aria-hidden="true">...</span></p>
+      <div id="bios-menu" class="bios-menu" hidden>
+        <p>SELECT BOOT DEVICE</p>
+        <button type="button" data-bios-choice="1">1&nbsp; WARREN_HDD / BunnyOS</button>
+        <button type="button" data-bios-choice="2">2&nbsp; Floppy A: / no disk</button>
+        <button type="button" data-bios-choice="3">3&nbsp; Network PXE / no carrier</button>
+        <p>Press 1-3 or Esc to continue.</p>
+      </div>
+      <div class="bios-footer"><button type="button" data-bios-menu>[F12] Boot Menu</button><span>[Esc] Continue</span></div>
+    </div>
+  </template>
+
   <template id="welcome-template">
     <div class="welcome">
       <p class="ready-line">COTDB SYSTEM READY <span aria-hidden="true">//</span> WELCOME TO THE WARREN</p>
       <img class="wagon" src="assets/bunny-wagon-v2.png" alt="White pixel-art bunny pulling a covered Oregon Trail wagon" width="1774" height="887">
       <h1>CULT OF THE DEAD BUNNIES<span class="cursor" aria-hidden="true">_</span></h1>
       <p>A bunny, a wagon, and a place for dial tones, hacker zines, and the old web.</p>
+      <p id="boot-quote" class="quote"></p>
       <p class="hint">Type <strong>help</strong>, browse the files, or take the wagon down the trail.</p>
     </div>
   </template>

@@ -22,7 +22,7 @@ window.COTDB_FS = directory({
   }),
   home: directory({
     guest: directory({
-      'readme.txt': textFile('COTDB / CULT OF THE DEAD BUNNIES\nA small terminal on the edge of the old web.\nTry: ls, cd notes, map, or travel.', 'guest'),
+      'readme.txt': textFile('COTDB / CULT OF THE DEAD BUNNIES\nA small terminal on the edge of the old web.\nTry: ls, cd notes, games, or travel.', 'guest'),
       'manifesto.txt': textFile('01. Stay curious.\n02. Take things apart to understand them.\n03. Leave a trail for the next person.\n04. Feed the bunny.', 'guest'),
       'fieldnotes.txt': textFile('The wagon is packed. The road ahead is mostly static.\nSomewhere past the crossing, a signal keeps repeating: 2600.', 'guest'),
       'wagon.png': imageFile('assets/bunny-wagon-v2.png'),
@@ -37,7 +37,8 @@ window.COTDB_FS = directory({
       '.bash_history': textFile('ls -la\ncat /etc/os-release\nfind /home/guest -name "*.txt"\ntravel', 'guest')
     }, 'guest'),
     bunny: directory({
-      'todo.txt': textFile('Pull wagon. Check river. Find carrots.', 'bunny')
+      'todo.txt': textFile('Pull wagon. Check river. Find carrots.', 'bunny'),
+      'Flag.txt': textFile('COTDB{bunny_made_it_home}', 'bunny')
     }, 'bunny')
   }),
   mnt: directory({
@@ -73,7 +74,15 @@ window.COTDB_FS = directory({
     log: directory({
       'boot.log': textFile('[  OK  ] Mounted /warren\n[  OK  ] Started bunnyd.service\n[  OK  ] Reached terminal.target'),
       'auth.log': textFile('Jan 01 19:42:06 warren sudo: guest : command denied : /usr/bin/carrot'),
-      'warren.log': textFile('The night board hums. The signal is 2600. The wagon is still moving.')
+      'warren.log': textFile('The night board hums. The signal is 2600. The wagon is still moving.\nJan 01 20:14:11 warren ticketd[1978]: new report filed in /var/log/tickets.log'),
+      'tickets.log': textFile('Jan 01 20:14:11 warren ticketd[1978]: TICKET COTDB-0042 OPEN\n' +
+        'Reporter: guest@warren\n' +
+        'Component: trail / wagon score screen\n' +
+        'Summary: Finishing Trail leaks the password hash of the current user for some reason.\n' +
+        'Reproduction: Complete all four legs and inspect the final output.\n' +
+        'Expected: A score, perhaps a carrot.\n' +
+        'Observed: A bcrypt-looking string. Guest sessions even label it as bunny.\n' +
+        'Status: Unresolved. Sysop says to stop calling it a feature.')
     })
   })
 });

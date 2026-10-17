@@ -1,16 +1,19 @@
 // A small in-memory Linux-like shell. No command reaches the host operating system.
 window.BunnyShell = (() => {
   const root = window.COTDB_FS;
-  const home = '/home/guest';
-  let cwd = home;
+  let user = 'guest';
+  let cwd = '/home/guest';
+  let awaitingPassword = false;
+  const home = () => '/home/' + user;
   const ok = (text = '') => ({text, error: false});
   const fail = (text) => ({text, error: true});
   const known = ['pwd', 'cd', 'ls', 'files', 'cat', 'head', 'tail', 'tree', 'find', 'grep', 'file', 'stat', 'echo', 'wc',
+    'whoami', 'su', 'exit', 'logout', 'games', 'trail', 'travel', 'guess', 'rps', 'wopr', 'sneakers', 'bbs', 'map', 'look',
     'uname', 'id', 'groups', 'hostname', 'env', 'printenv', 'getent', 'which', 'ps', 'ss', 'netstat', 'ip',
     'ifconfig', 'route', 'arp', 'df', 'free', 'lsblk', 'mount', 'lsof', 'who', 'crontab', 'sudo', 'systemctl', 'hostnamectl', 'lsb_release', 'last', 'lscpu', 'uptime'];
 
   function path(value = '.') {
-    const source = value === '~' ? home : value.startsWith('~/') ? home + value.slice(1) : value;
+    const source = value === '~' ? home() : value.startsWith('~/') ? home() + value.slice(1) : value;
     const parts = source.startsWith('/') ? [] : cwd.split('/').filter(Boolean);
     for (const part of source.split('/')) {
       if (!part || part === '.') continue;
@@ -27,14 +30,34 @@ window.BunnyShell = (() => {
     }
     return current;
   }
-  const denied = (absolute) => absolute === '/root' || absolute.startsWith('/root/');
-  const mode = (item) => item.kind === 'dir' ? 'drwxr-xr-x'
-    : item.kind === 'program' ? item.suid ? '-rwsr-xr-x' : '-rwxr-xr-x' : '-rw-r--r--';
+  const denied = (absolute) => absolute === '/root' || absolute.startsWith('/root/') ||
+    (user !== 'bunny' && (absolute === '/home/bunny' || absolute.startsWith('/home/bunny/')));
+  const mode = (item) => item.kind === 'dir' ? item.owner === 'bunny' ? 'drwx------' : 'drwxr-xr-x'
+    : item.kind === 'program' ? item.suid ? '-rwsr-xr-x' : '-rwxr-xr-x'
+      : item.owner === 'bunny' ? '-rw-------' : '-rw-r--r--';
   const size = (item) => item.kind === 'dir' ? 4096 : item.kind === 'image' ? 592061
     : item.kind === 'program' ? 8192 : item.text.length;
-  const label = () => cwd === home ? '~' : cwd.startsWith(home + '/') ? '~' + cwd.slice(home.length) : cwd;
-  function prompt() { return 'guest@warren:' + label() + '$'; }
-  function reset() { cwd = home; }
+  const label = () => cwd === home() ? '~' : cwd.startsWith(home() + '/') ? '~' + cwd.slice(home().length) : cwd;
+  function prompt() { return user + '@warren:' + label() + '$'; }
+  function reset() { user = 'guest'; cwd = home(); awaitingPassword = false; }
+  function isAwaitingPassword() { return awaitingPassword; }
+  function cancelPassword() { awaitingPassword = false; }
+  async function authenticate(password) {
+    if (!awaitingPassword) return fail('su: no password requested');
+    awaitingPassword = false;
+    try {
+      const valid = await new Promise((resolve, reject) => {
+        window.dcodeIO.bcrypt.compare(password, window.BunnyGames.passwordHash, (error, match) =>
+          error ? reject(error) : resolve(match));
+      });
+      if (!valid) return fail('su: Authentication failure');
+      user = 'bunny';
+      cwd = home();
+      return ok('Welcome home, bunny.');
+    } catch {
+      return fail('su: password verification unavailable');
+    }
+  }
 
   function tokenize(source) {
     const parts = [];
@@ -93,17 +116,19 @@ window.BunnyShell = (() => {
     if (item.kind !== 'dir') return ok(absolute);
     const lines = [absolute];
     let dirs = 0, files = 0;
-    function visit(current, prefix, depth) {
+    function visit(current, here, prefix, depth) {
       if (depth > 7 || lines.length > 100) return;
-      const entries = Object.entries(current.entries).filter(([name]) => all || !name.startsWith('.')).sort(([a], [b]) => a.localeCompare(b));
+      const entries = Object.entries(current.entries).filter(([name]) => all || !name.startsWith('.'))
+        .sort(([a], [b]) => a.localeCompare(b));
       entries.forEach(([name, entry], index) => {
         const last = index === entries.length - 1;
+        const childPath = (here === '/' ? '' : here) + '/' + name;
         lines.push(prefix + (last ? '└── ' : '├── ') + name + (entry.kind === 'dir' ? '/' : ''));
-        if (entry.kind === 'dir') { dirs++; if (!denied(path(absolute + '/' + name))) visit(entry, prefix + (last ? '    ' : '│   '), depth + 1); }
+        if (entry.kind === 'dir') { dirs++; if (!denied(childPath)) visit(entry, childPath, prefix + (last ? '    ' : '│   '), depth + 1); }
         else files++;
       });
     }
-    visit(item, '', 0);
+    visit(item, absolute, '', 0);
     return ok(lines.join('\n') + '\n\n' + dirs + ' directories, ' + files + ' files');
   }
   function glob(pattern, name) {
@@ -178,11 +203,13 @@ window.BunnyShell = (() => {
     return ok((count === 0 ? [] : name === 'head' ? lines.slice(0, count) : lines.slice(-count)).join('\n'));
   }
   function environment() {
-    return 'USER=guest\nHOME=/home/guest\nSHELL=/bin/sh\nHOSTNAME=warren\nTERM=bunny-256color\nPATH=/bin:/usr/bin';
+    return `USER=${user}\nHOME=${home()}\nSHELL=/bin/sh\nHOSTNAME=warren\nTERM=bunny-256color\nPATH=/bin:/usr/bin`;
   }
   function dispatch(words, stdin = null) {
     const [command, ...parameters] = words;
     const args = [...parameters];
+    const game = window.BunnyGames.run(command, args);
+    if (game) return game;
     switch (command) {
       case 'pwd': return ok(cwd);
       case 'cd': {
@@ -210,6 +237,7 @@ window.BunnyShell = (() => {
       }
       case 'file': {
         const target = path(args[0] || '.'), item = node(target);
+        if (denied(target)) return fail('file: ' + target + ': Permission denied');
         if (!item) return fail('file: ' + target + ': No such file or directory');
         return ok((args[0] || '.') + ': ' + {dir: 'directory', file: 'ASCII text', image: 'PNG image data, 1774 x 887, pixel art', program: 'BunnyOS executable'}[item.kind]);
       }
@@ -220,12 +248,25 @@ window.BunnyShell = (() => {
         return ok('  File: ' + target + '\n  Size: ' + size(item) + '\tType: ' + item.kind + '\nAccess: (' + mode(item) + ')  Uid: ' + item.owner + '  Gid: ' + item.owner);
       }
       case 'echo': {
-        const vars = {HOME: home, USER: 'guest', SHELL: '/bin/sh', HOSTNAME: 'warren', PWD: cwd};
+        const vars = {HOME: home(), USER: user, SHELL: '/bin/sh', HOSTNAME: 'warren', PWD: cwd};
         return ok(args.join(' ').replace(/\$([A-Z_]+)/g, (_, key) => vars[key] ?? ''));
       }
-      case 'whoami': return ok('guest');
-      case 'id': return ok('uid=1000(guest) gid=1000(guest) groups=1000(guest),42(carrot)');
-      case 'groups': return ok('guest carrot');
+      case 'whoami': return ok(user);
+      case 'id': return user === 'guest' ? ok('uid=1000(guest) gid=1000(guest) groups=1000(guest),42(carrot)')
+        : ok('uid=1001(bunny) gid=1001(bunny) groups=1001(bunny),42(carrot),10(wheel)');
+      case 'groups': return ok(user === 'guest' ? 'guest carrot' : 'bunny carrot wheel');
+      case 'su': {
+        const target = args[0] || 'root';
+        if (target === 'guest' && user === 'bunny') { user = 'guest'; cwd = home(); return ok(''); }
+        if (target !== 'bunny') return fail('su: ' + target + ': Authentication failure');
+        if (user === 'bunny') return ok('Already logged in as bunny.');
+        awaitingPassword = true;
+        return ok('Password:');
+      }
+      case 'exit': case 'logout': {
+        if (user === 'guest') return ok('Already at guest shell.');
+        user = 'guest'; cwd = home(); return ok('Logged out of bunny.');
+      }
       case 'hostname': return ok('warren');
       case 'uname': return ok(args.includes('-a') ? 'Linux warren 6.6.6-bunny #1 SMP BunnyOS x86_64 GNU/BunnyOS' : args.includes('-r') ? '6.6.6-bunny' : 'Linux');
       case 'hostnamectl': return ok(' Static hostname: warren\n       Icon name: computer-bunny\n Operating System: BunnyOS 0.9 (The Warren)\n           Kernel: Linux 6.6.6-bunny\n     Architecture: x86_64');
@@ -247,7 +288,7 @@ window.BunnyShell = (() => {
       case 'lsblk': return ok('NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS\nwagon0    8:0    0  1.4G  0 disk /\ncarrot1   8:1    1   64M  0 disk /mnt/carrot');
       case 'mount': return ok('/dev/wagon0 on / type ext4 (rw,relatime)\ntmpfs on /tmp type tmpfs (rw,nosuid,nodev)\n/dev/carrot1 on /mnt/carrot type carrotfs (ro)');
       case 'lsof': return ok('COMMAND  PID USER  FD  TYPE DEVICE NAME\nbunnyd  2600 root   3u  IPv4  2600  UDP 127.0.0.1:2600\nboardd  1978 bunny  4u  IPv4  1978  TCP 10.66.6.42:1978 (LISTEN)');
-      case 'who': return ok('guest    pts/0        Jan  1 19:42 (ear0)');
+      case 'who': return ok(user + '    pts/0        Jan  1 19:42 (ear0)');
       case 'crontab': return args[0] === '-l' ? ok('17 2 * * * /usr/bin/carrot --water\n@reboot /usr/sbin/wagond --follow-trail') : fail('crontab: use -l to list jobs');
       case 'sudo': return args[0] === '-l' ? ok('Matching Defaults entries for guest on warren:\n    env_reset, secure_path=/bin:/usr/bin\nUser guest may run the following commands on warren:\n    (root) NOPASSWD: /usr/bin/carrot') : args[0] === '/usr/bin/carrot' ? ok('CARROT ACQUIRED. The bunny approves.') : fail('sudo: guest is not allowed to run that command');
       case 'systemctl': return args[0] === 'status' && args[1] ? ok('● ' + args[1] + ' - BunnyOS service\n   Loaded: loaded\n   Active: active (running) since Jan 01 1996') : ok('UNIT             LOAD   ACTIVE SUB     DESCRIPTION\nbunnyd.service   loaded active running Bunny signal daemon\nwagond.service   loaded active running Wagon trail service\nboardd.service   loaded active running Night board');
@@ -258,6 +299,7 @@ window.BunnyShell = (() => {
     }
   }
   function run(raw) {
+    if (awaitingPassword) return fail('su: password required');
     if (/[;&<>]/.test(raw)) return fail('shell operators are not available in this terminal');
     const stages = raw.split('|').map((piece) => tokenize(piece.trim()));
     if (stages.some((stage) => !stage || !stage.length)) return fail('shell: unterminated quote or empty pipe');
@@ -271,10 +313,31 @@ window.BunnyShell = (() => {
     return response;
   }
   function complete(typed) {
-    const current = node(cwd);
-    const names = current && current.kind === 'dir' ? Object.keys(current.entries) : [];
-    const candidates = typed.includes(' ') ? names.map((name) => typed.split(' ')[0] + ' ' + name) : known;
-    return candidates.filter((entry) => entry.startsWith(typed.toLowerCase()));
+    const segmentStart = typed.lastIndexOf('|') + 1;
+    const segment = typed.slice(segmentStart);
+    const tokenStart = typed.length - (segment.match(/[^\s]*$/)?.[0].length ?? 0);
+    const before = typed.slice(0, tokenStart);
+    const fragment = typed.slice(tokenStart);
+    if (!before.slice(segmentStart).trim()) {
+      return known.filter((command) => command.startsWith(fragment)).map((command) => before + command);
+    }
+    if (fragment.startsWith('-')) return [];
+    if (fragment === '~') return [before + '~/'];
+    const slash = fragment.lastIndexOf('/');
+    const directoryPart = slash < 0 ? '' : fragment.slice(0, slash + 1);
+    const partialName = fragment.slice(slash + 1);
+    const absoluteDirectory = path(directoryPart || '.');
+    if (denied(absoluteDirectory)) return [];
+    const parent = node(absoluteDirectory);
+    if (!parent || parent.kind !== 'dir') return [];
+    const command = before.slice(segmentStart).trimStart().split(/\s+/)[0];
+    return Object.entries(parent.entries)
+      .filter(([name, item]) => name.startsWith(partialName) &&
+        (partialName.startsWith('.') || !name.startsWith('.')) &&
+        (command !== 'cd' || item.kind === 'dir') &&
+        !denied(path(directoryPart + name)))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, item]) => before + directoryPart + name + (item.kind === 'dir' ? '/' : ''));
   }
-  return {run, reset, prompt, complete};
+  return {run, reset, prompt, complete, isAwaitingPassword, cancelPassword, authenticate};
 })();
