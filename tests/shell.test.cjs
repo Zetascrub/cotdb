@@ -5,12 +5,17 @@ const test = require('node:test');
 const vm = require('node:vm');
 const bcrypt = require('../dist/vendor/bcrypt.min.js');
 
+// Flag 'COTDB{bunny_made_it_home}' sealed with the test password 'bunny123' (scripts/seal-flag.mjs).
+// The real password never appears here; tests swap in this blob alongside the test hash.
+const TEST_FLAG_BLOB = 'ZD0/HtvmHa03cASK7L5C8fabs+KZZKEP0/Oneqe4aWolLhCnSSPUJarunPdXhb7YuKt+tRZ+a2Sv/4ZnnOMI5Bbhidun';
+
 function shell(testHash) {
-  const context = vm.createContext({window: {}, setTimeout, clearTimeout});
+  const context = vm.createContext({window: {}, setTimeout, clearTimeout, crypto, atob, btoa, TextEncoder, TextDecoder});
   for (const file of ['vendor/bcrypt.min.js', 'filesystem.js', 'games.js', 'shell.js']) {
     let source = fs.readFileSync(path.join(__dirname, '..', 'dist', file), 'utf8');
     if (file === 'games.js' && testHash) {
-      source = source.replace(/(const bunnyHash = ')[^']+(';)/, (_, before, after) => before + testHash + after);
+      source = source.replace(/(const bunnyHash = ')[^']+(';)/, (_, before, after) => before + testHash + after)
+        .replace(/(const flagBlob = ')[^']+(';)/, (_, before, after) => before + TEST_FLAG_BLOB + after);
     }
     vm.runInContext(source, context);
     if (file === 'vendor/bcrypt.min.js') context.window.dcodeIO = context.dcodeIO;
@@ -47,6 +52,10 @@ test('searches and pipes through the virtual tree', () => {
   assert.equal(sh.run('find / -perm -4000').text, '/usr/bin/carrot');
   assert.match(sh.run('cat /etc/passwd | grep bunny').text, /bunny:x:1001/);
   assert.equal(sh.run('cat /etc/passwd | grep bunny | wc -l').text, '1');
+  // Pipe/operator characters are literal inside quotes, special only outside them.
+  assert.equal(sh.run('echo "a|b"').text, 'a|b');
+  assert.equal(sh.run('echo "x;y"').text, 'x;y');
+  assert.match(sh.run('ls; ls').text, /operators are not available/);
 });
 
 test('completes nested paths without suggesting private files', () => {
@@ -106,6 +115,20 @@ test('bcrypt password switches to bunny and logout restores guest permissions', 
   sh.reset(); games.reset();
   assert.equal(sh.run('whoami').text, 'guest');
   assert.match(sh.run('trail').text, /CAMP/);
+});
+
+test('the flag is sealed in source and both password routes agree', () => {
+  const dist = path.join(__dirname, '..', 'dist');
+  for (const file of ['filesystem.js', 'games.js', 'shell.js', 'script.js']) {
+    assert.doesNotMatch(fs.readFileSync(path.join(dist, file), 'utf8'), /COTDB\{/, `${file} leaks the flag`);
+  }
+  // Route B easter egg: the .whisper clue (base64, then ROT13) must give the Route A password.
+  const filesystem = fs.readFileSync(path.join(dist, 'filesystem.js'), 'utf8');
+  const clue = filesystem.match(/'\.whisper':\s*textFile\('([^']*)'/)[1].split('\\n').pop();
+  const rot13 = (s) => s.replace(/[a-z]/g, (c) => String.fromCharCode((c.charCodeAt(0) - 97 + 13) % 26 + 97));
+  const password = rot13(Buffer.from(clue, 'base64').toString('utf8'));
+  const {games} = shell();
+  assert.equal(bcrypt.compareSync(password, games.passwordHash), true);
 });
 
 test('trail can fail and other games respond', () => {

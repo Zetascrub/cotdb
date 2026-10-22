@@ -34,11 +34,12 @@ window.COTDB_FS = directory({
         'map.txt': textFile('CAMP -- PAYPHONE -- CROSSING -- NIGHT BOARD -- WARREN', 'guest'),
         'supplies.txt': textFile('1 wagon\n1 determined bunny\n0 spare horses\nEnough carrots, probably', 'guest')
       }, 'guest'),
-      '.bash_history': textFile('ls -la\ncat /etc/os-release\nfind /home/guest -name "*.txt"\ntravel', 'guest')
+      '.bash_history': textFile('ls -la\ncat /etc/os-release\nfind /home/guest -name "*.txt"\ntravel', 'guest'),
+      '.whisper': textFile('Overheard on the night board, low and repeating:\n"The sysop rotated it half the alphabet, then packed it for the modem. Unpack the base64, turn it back, then su bunny."\ndWJhcmxvaGFhbA==', 'guest')
     }, 'guest'),
     bunny: directory({
       'todo.txt': textFile('Pull wagon. Check river. Find carrots.', 'bunny'),
-      'Flag.txt': textFile('COTDB{bunny_made_it_home}', 'bunny')
+      'Flag.txt': textFile('(sealed) The flag unlocks when you authenticate as bunny.', 'bunny')
     }, 'bunny')
   }),
   mnt: directory({

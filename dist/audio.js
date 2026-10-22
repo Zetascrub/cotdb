@@ -121,5 +121,5 @@ window.BunnyAudio = (() => {
     platter.onended = () => { motor.disconnect(); platter.disconnect(); master.disconnect(); };
   }
 
-  return Object.freeze({toggle, enabled: () => on, key, boot, bootFail, command, error, success, connect, powerOff, startDrive, stopDrive});
+  return Object.freeze({toggle, key, boot, bootFail, command, error, success, powerOff, startDrive, stopDrive});
 })();

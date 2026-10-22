@@ -2,6 +2,9 @@
 window.BunnyGames = (() => {
   // Bunny's bcrypt hash. Keep this and the authentication check in sync.
   const bunnyHash = '$2a$12$HrnmCRhtMtdf6CPsLC.9LeT5eruGpal6CHBQoyiF0qd80P4SGfBdO';
+  // Flag sealed with the bunny password (AES-GCM; see scripts/seal-flag.mjs).
+  // Only this ciphertext ships; cracking the hash yields the password that decrypts it.
+  const flagBlob = 'n4tSj+zLtGlVVRBysTdwH3RRtghad+sCQZZV40oGYBiAB2gJ1JOsLTbR9WBfayD2dQMAT+oowszKcXQKnMmi2oKqVxOl';
   const legs = [
     {name: 'CAMP', scene: 'Your wagon is packed at the edge of the warren.', choices: {
       pack: {carrots: 2, wagon: 0, text: 'You tuck extra carrots under the canvas.'},
@@ -191,5 +194,5 @@ window.BunnyGames = (() => {
   }
   function reset() { trail = null; guess = null; wopr = null; sneakers = null; bbs = null; }
   function status() { return trail ? `trail ${trail.result || `${trail.leg + 1}/${legs.length}`} · ${supplyLine()}` : 'trail not started'; }
-  return Object.freeze({run, reset, status, passwordHash: bunnyHash});
+  return Object.freeze({run, reset, status, passwordHash: bunnyHash, flagBlob});
 })();

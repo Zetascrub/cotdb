@@ -42,6 +42,20 @@ window.BunnyShell = (() => {
   function reset() { user = 'guest'; cwd = home(); awaitingPassword = false; }
   function isAwaitingPassword() { return awaitingPassword; }
   function cancelPassword() { awaitingPassword = false; }
+  async function decryptFlag(password, blob) {
+    const raw = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
+    const salt = raw.slice(0, 16), iv = raw.slice(16, 28), data = raw.slice(28);
+    const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+      {name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256'}, keyMaterial,
+      {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+    return new TextDecoder().decode(await crypto.subtle.decrypt({name: 'AES-GCM', iv}, key, data));
+  }
+  async function unsealFlag(password) {
+    const item = node('/home/bunny/Flag.txt');
+    if (!item || !window.BunnyGames.flagBlob) return;
+    try { item.text = await decryptFlag(password, window.BunnyGames.flagBlob); } catch { /* password was right but decrypt failed; leave it sealed */ }
+  }
   async function authenticate(password) {
     if (!awaitingPassword) return fail('su: no password requested');
     awaitingPassword = false;
@@ -51,6 +65,7 @@ window.BunnyShell = (() => {
           error ? reject(error) : resolve(match));
       });
       if (!valid) return fail('su: Authentication failure');
+      await unsealFlag(password);
       user = 'bunny';
       cwd = home();
       return ok('Welcome home, bunny.');
@@ -74,6 +89,20 @@ window.BunnyShell = (() => {
     if (quote) return null;
     if (started) parts.push(word);
     return parts;
+  }
+  // Split on | into pipe stages, but only outside quotes; reject ; & < > only outside quotes.
+  function splitPipes(raw) {
+    const pieces = [];
+    let current = '', quote = '';
+    for (const c of raw) {
+      if (quote) { if (c === quote) quote = ''; current += c; }
+      else if (c === '"' || c === "'") { quote = c; current += c; }
+      else if (c === '|') { pieces.push(current); current = ''; }
+      else if (';&<>'.includes(c)) return null;
+      else current += c;
+    }
+    pieces.push(current);
+    return pieces;
   }
   function read(absolute, command = 'cat') {
     if (denied(absolute)) return fail(command + ': ' + absolute + ': Permission denied');
@@ -300,8 +329,9 @@ window.BunnyShell = (() => {
   }
   function run(raw) {
     if (awaitingPassword) return fail('su: password required');
-    if (/[;&<>]/.test(raw)) return fail('shell operators are not available in this terminal');
-    const stages = raw.split('|').map((piece) => tokenize(piece.trim()));
+    const pieces = splitPipes(raw);
+    if (!pieces) return fail('shell operators are not available in this terminal');
+    const stages = pieces.map((piece) => tokenize(piece.trim()));
     if (stages.some((stage) => !stage || !stage.length)) return fail('shell: unterminated quote or empty pipe');
     if (!known.includes(stages[0][0])) return null;
     let response = dispatch(stages[0]);
